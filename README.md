@@ -1,1 +1,1 @@
-# imp-compiler
+# imp-interpeter
