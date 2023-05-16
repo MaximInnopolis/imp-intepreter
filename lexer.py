@@ -50,6 +50,12 @@ TT_FLOAT = 'FLOAT'
 TT_IDENTIFIER = 'IDENTIFIER'
 TT_KEYWORD = 'KEYWORD'
 TT_EQ = 'EQ'
+TT_EEQ = 'EEQ'
+TT_NEQ = 'NEQ'
+TT_LESS = 'LESS'
+TT_GREATER = 'GREATER'
+TT_LESS_OR_EQ = 'LESS_OR_EQ'
+TT_GREATER_OR_EQ = 'GREATER_OR_EQ'
 TT_PLUS = 'PLUS'
 TT_MINUS = 'MINUS'
 TT_MUL = 'MUL'
@@ -59,7 +65,7 @@ TT_LPAREN = 'LPAREN'
 TT_RPAREN = 'RPAREN'
 TT_EOF = 'EOF'
 
-KEYWORDS = ['VAR']
+KEYWORDS = ['VAR', 'AND', 'OR', 'NOT']
 
 
 class Token:
@@ -110,9 +116,6 @@ class Lexer:
                 tokens.append(self.create_number())
             elif self.cur_char in LETTERS:
                 tokens.append(self.create_identifier())
-            elif self.cur_char == '=':
-                tokens.append(Token(TT_EQ, pos_start=self.pos))
-                self.advance()
             elif self.cur_char == '+':
                 tokens.append(Token(TT_PLUS, pos_start=self.pos))
                 self.advance()
@@ -134,6 +137,16 @@ class Lexer:
             elif self.cur_char == ')':
                 tokens.append(Token(TT_RPAREN, pos_start=self.pos))
                 self.advance()
+            elif self.cur_char == '!':
+                token, error = self.create_not_equals()
+                if error: return [], error
+                tokens.append(token)
+            elif self.cur_char == '=':
+                tokens.append(self.create_equals())
+            elif self.cur_char == '<':
+                tokens.append(self.create_less_than())
+            elif self.cur_char == '>':
+                tokens.append(self.create_greater_than())
 
             else:
                 pos_start = self.pos.copy()
@@ -173,4 +186,48 @@ class Lexer:
             
         token_type = TT_KEYWORD if id_str in KEYWORDS else TT_IDENTIFIER
         return Token(token_type, id_str, pos_start, self.pos)
+    
+    def create_not_equals(self):
+        pos_start = self.pos.copy()
+        self.advance()
+
+        if self.cur_char == '=':
+            self.advance()
+            return Token(TT_NEQ, pos_start=pos_start, pos_end=self.pos), None
+
+        self.advance()
+        return None, error.ExpectedCharError(pos_start, self.pos, "'=' (after '!')")
+
+    def create_equals(self):
+        token_type = TT_EQ
+        pos_start = self.pos.copy()
+        self.advance()
+
+        if self.cur_char == '=':
+            self.advance()
+            token_type = TT_EEQ
+
+        return Token(token_type, pos_start=pos_start, pos_end=self.pos)
+
+    def create_less_than(self):
+        token_type = TT_LESS
+        pos_start = self.pos.copy()
+        self.advance()
+
+        if self.cur_char == '=':
+            self.advance()
+            token_type = TT_LESS_OR_EQ
+
+        return Token(token_type, pos_start=pos_start, pos_end=self.pos)
+
+    def create_greater_than(self):
+        token_type = TT_GREATER
+        pos_start = self.pos.copy()
+        self.advance()
+
+        if self.cur_char == '=':
+            self.advance()
+            token_type = TT_GREATER_OR_EQ
+
+        return Token(token_type, pos_start=pos_start, pos_end=self.pos)
     

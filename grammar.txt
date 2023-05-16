@@ -1,13 +1,20 @@
-expr    : KEYWORD:VAR IDENTIFIER EQ expr
-        : term ((PLUS|MINUS) term)*
+expr            : KEYWORD:VAR IDENTIFIER EQ expr
+                : comparison-expr ((KEYWORD:AND|KEYWORD:OR)comp-expr)*
 
-term    : factor ((MUL|DIV) factor)*
+comparison-expr : NOT comparison-expr
+                : arithmetic-expr((EEQ|NEQ|LESS|GREATER|LESS_OR_EQ|GREATER_OR_EQ) arithmetic-expr)*
 
-factor  : (PLUS|MINUS) factor
-        : power
+arithmetic-expr : term ((PLUS|MINUS) term)*
 
-pow     : atom (POW factor)*
+term            : factor ((MUL|DIV) factor)*
 
-atom    : INT|FLOAT|IDENTIFIER
-        : LPAREN expr RPAREN
+factor          : (PLUS|MINUS) factor
+                : power
+ 
+pow             : atom (POW factor)*
+
+atom            : INT|FLOAT|IDENTIFIER
+                : LPAREN expr RPAREN
+
+
 

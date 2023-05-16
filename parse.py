@@ -71,21 +71,23 @@ class ParseResult:
     def __init__(self):
         self.error = None
         self.node = None
+        self.advance_count = 0
 
     def register_advancement(self):
         self.advance_count += 1
 
-    def register(self, res):
-        self.advance_count += res.advance_count
-        if res.error: self.error = res.error
-        return res.node
+    def register(self, result):
+        self.advance_count += result.advance_count
+        if result.error: self.error = result.error
+        return result.node
 
     def success(self, node):
         self.node = node
         return self
 
     def failure(self, error):
-        self.error = error
+        if not self.error or self.advance_count == 0:
+            self.error = error
         return self
 
 
@@ -99,7 +101,7 @@ class Parser:
         self.token_index = -1
         self.advance()
 
-    def advance(self):
+    def advance(self, ):
         self.token_index += 1
         if self.token_index < len(self.tokens):
             self.cur_token = self.tokens[self.token_index]
@@ -109,7 +111,8 @@ class Parser:
         result = self.expr()
 
         if not result.error and self.cur_token.type != lexer.TT_EOF:
-            return result.failure(error.InvalidSynaxError(self.cur_token.pos_start, self.cur_token.pos_end, "Expected '+', '-', '*', or '/'"))
+            return result.failure(error.InvalidSynaxError(self.cur_token.pos_start, self.cur_token.pos_end, 
+                                                          "Expected '+', '-', '*', '/', '^', '==', '!=', '<', '>', <=', '>=', 'AND' or 'OR'"))
 
         return result
     
@@ -161,31 +164,60 @@ class Parser:
     
     def term(self):
         return self.binary_operation(self.factor, (lexer.TT_MUL, lexer.TT_DIV))
+    
+    def arith_expr(self):
+            return self.binary_operation(self.term, (lexer.TT_PLUS, lexer.TT_MINUS))
+
+    def comp_expr(self):
+        result = ParseResult()
+
+        if self.cur_token.matches(lexer.TT_KEYWORD, 'NOT'):
+            op_token = self.cur_token
+            result.register_advancement()
+            self.advance()
+
+            node = result.register(self.comp_expr())
+            if result.error: return result
+            return result.success(UnaryOperationNode(op_token, node))
+        
+        node = result.register(self.binary_operation(self.arith_expr, (
+            lexer.TT_EEQ, lexer.TT_NEQ, lexer.TT_LESS, lexer.TT_GREATER, lexer.TT_LESS_OR_EQ, lexer.TT_GREATER_OR_EQ)))
+        
+        if result.error:
+            return result.failure(error.InvalidSyntaxError(self.cur_token.pos_start, self.cur_token.pos_end, 
+                                                           "Expected int, float, identifier, '+', '-', '(' or 'NOT'"))
+
+        return result.success(node)
+
 
     def expr(self):
-        res = ParseResult()
+        result = ParseResult()
+
         if self.cur_token.matches(lexer.TT_KEYWORD, 'VAR'):
-            res.register(self.advance())
+            result.register_advancement()
+            self.advance()
 
             if self.cur_token.type != lexer.TT_IDENTIFIER:
-                return res.failure(lexer.InvalidSyntaxError(self.cur_token.pos_start, self.cur_token.pos_end,"Expected identifier"))
+                return result.failure(lexer.InvalidSyntaxError(self.cur_token.pos_start, self.cur_token.pos_end, "Expected identifier"))
             
             var_name = self.cur_token
-            res.register(self.advance())
+            result.register_advancement()
+            self.advance()
 
             if self.cur_token.type != lexer.TT_EQ:
-                return res.failure(lexer.InvalidSyntaxError(self.cur_token.pos_start, self.cur_token.pos_end, "Expected '='"))
+                return result.failure(lexer.InvalidSyntaxError(self.cur_token.pos_start, self.cur_token.pos_end, "Expected '='"))
             
-            res.register(self.advance())
-            expr = res.register(self.expr())
-            if res.error: return res
-            return res.success(VarAssignNode(var_name, expr))
+            result.register_advancement()
+            self.advance()
+            expr = result.register(self.expr())
+            if result.error: return result
+            return result.success(VarAssignNode(var_name, expr))
             
-        node = res.register(self.binary_operation(self.term, (lexer.TT_PLUS, lexer.TT_MINUS)))
+        node = result.register(self.binary_operation(self.comp_expr, ((lexer.TT_KEYWORD, 'AND'), (lexer.TT_KEYWORD, 'OR'))))
 
-        if res.error: return res.failure(lexer.InvalidSyntaxError(
+        if result.error: return result.failure(error.InvalidSyntaxError(
                 self.cur_token.pos_start, self.cur_token.pos_end, "Expected 'Var', 'Identifier', int, float, '+', '-' or '('"))
-        return res.success(node)
+        return result.success(node)
 
     def binary_operation(self, func_a, operations, func_b=None):
         if func_b == None:
@@ -195,7 +227,7 @@ class Parser:
         left = result.register(func_a())
         if result.error: return result
 
-        while self.cur_token.type in operations:
+        while self.cur_token.type in operations or (self.cur_token.type, self.cur_token.value) in operations:
             operation_token = self.cur_token
             result.register_advancement()
             self.advance()

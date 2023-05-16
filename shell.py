@@ -11,7 +11,7 @@ def run(file_name, text):
     tokens, error = lex.create_tokens()
     if error: return None, error
 
-    #return tokens, error
+    # return tokens, error
 
     # Generate AST
     parser = parse.Parser(tokens)

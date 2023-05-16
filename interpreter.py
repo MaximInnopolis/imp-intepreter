@@ -71,6 +71,41 @@ class Number:
         if isinstance(other, Number):
             return Number(self.value ** other.value).set_context(self.context), None
         
+    def get_comparison_eq(self, other):
+        if isinstance(other, Number):
+            return Number(int(self.value == other.value)).set_context(self.context), None
+
+    def get_comparison_neq(self, other):
+        if isinstance(other, Number):
+            return Number(int(self.value != other.value)).set_context(self.context), None
+
+    def get_comparison_less(self, other):
+        if isinstance(other, Number):
+            return Number(int(self.value < other.value)).set_context(self.context), None
+
+    def get_comparison_greater(self, other):
+        if isinstance(other, Number):
+            return Number(int(self.value > other.value)).set_context(self.context), None
+
+    def get_comparison_less_or_eq(self, other):
+        if isinstance(other, Number):
+            return Number(int(self.value <= other.value)).set_context(self.context), None
+
+    def get_comparison_greater_or_Eq(self, other):
+        if isinstance(other, Number):
+            return Number(int(self.value >= other.value)).set_context(self.context), None
+
+    def and_by(self, other):
+        if isinstance(other, Number):
+            return Number(int(self.value and other.value)).set_context(self.context), None
+
+    def or_by(self, other):
+        if isinstance(other, Number):
+            return Number(int(self.value or other.value)).set_context(self.context), None
+
+    def not_by(self):
+        return Number(1 if self.value == 0 else 0).set_context(self.context), None
+        
     def copy(self):
         copy = Number(self.value)
         copy.set_pos(self.pos_start, self.pos_end)
@@ -168,6 +203,22 @@ class Interpreter:
             result, error = left.div_by(right)
         elif node.operation_token.type == lexer.TT_POW:
             result, error = left.pow_by(right)
+        elif node.operation_token.type == lexer.TT_EEQ:
+            result, error = left.get_comparison_eq(right)
+        elif node.operation_token.type == lexer.TT_NEQ:
+            result, error = left.get_comparison_neq(right)
+        elif node.operation_token.type == lexer.TT_LESS:
+            result, error = left.get_comparison_less(right)
+        elif node.operation_token.type == lexer.TT_GREATER:
+            result, error = left.get_comparison_greater(right)
+        elif node.operation_token.type == lexer.TT_LESS_OR_EQ:
+            result, error = left.get_comparison_less_or_eq(right)
+        elif node.operation_token.type == lexer.TT_GREATER_OR_EQ:
+            result, error = left.get_comparison_greater_or_eq(right)
+        elif node.operation_token.matches(lexer.TT_KEYWORD, 'AND'):
+            result, error = left.and_by(right)
+        elif node.operation_token.matches(lexer.TT_KEYWORD, 'OR'):
+            result, error = left.or_by(right)
 
 
         if error:
@@ -182,6 +233,8 @@ class Interpreter:
 
         if node.operation_token.type == lexer.TT_MINUS:
             number, error = number.mul_by(Number(-1))
+        elif node.operation_token.matches(lexer.TT_KEYWORD, 'NOT'):
+            number, error = number.not_by()
 
         if error: return result.failure(error)
         else:
