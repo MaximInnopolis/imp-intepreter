@@ -33,4 +33,4 @@ while True:
     result, err = run('<stdin>', text)
 
     if err: print(err.as_string())
-    else: print(result)
+    elif result: print(result)

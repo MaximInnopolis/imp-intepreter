@@ -91,7 +91,7 @@ class Number:
         if isinstance(other, Number):
             return Number(int(self.value <= other.value)).set_context(self.context), None
 
-    def get_comparison_greater_or_Eq(self, other):
+    def get_comparison_greater_or_eq(self, other):
         if isinstance(other, Number):
             return Number(int(self.value >= other.value)).set_context(self.context), None
 
@@ -105,6 +105,9 @@ class Number:
 
     def not_by(self):
         return Number(1 if self.value == 0 else 0).set_context(self.context), None
+
+    def is_true(self):
+        return self.value != 0
         
     def copy(self):
         copy = Number(self.value)
@@ -240,3 +243,21 @@ class Interpreter:
         else:
             return result.success(number.set_pos(node.pos_start, node.pos_end))
     
+    def visit_IfNode(self, node, context):
+        result = RuntimeResult()
+
+        for condition, expr in node.cases:
+            condition_value = result.register(self.visit(condition, context))
+            if result.error: return result
+
+            if condition_value.is_true():
+                expr_value = result.register(self.visit(expr, context))
+                if result.error: return result
+                return result.success(expr_value)
+
+        if node.else_case:
+            else_value = result.register(self.visit(node.else_case, context))
+            if result.error: return result
+            return result.success(else_value)
+
+        return result.success(None)

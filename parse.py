@@ -63,6 +63,14 @@ class UnaryOperationNode:
         return f'({self.operation_token}, {self.node})'
     
 
+class IfNode:
+	def __init__(self, cases, else_case):
+		self.cases = cases
+		self.else_case = else_case
+
+		self.pos_start = self.cases[0][0].pos_start
+		self.pos_end = (self.else_case or self.cases[len(self.cases) - 1][0]).pos_end
+
 ####################
 # PARSE RESULT
 ####################
@@ -116,6 +124,53 @@ class Parser:
 
         return result
     
+    def if_expr(self):
+        result = ParseResult()
+        cases = []
+        else_case = None
+
+        if not self.cur_token.matches(lexer.TT_KEYWORD, 'IF'):
+            return result.failure(error.InvalidSyntaxError(self.cur_token.pos_start, self.cur_token.pos_end, f"Expected 'IF'"))
+
+        result.register_advancement()
+        self.advance()
+
+        condition = result.register(self.expr())
+        if result.error: return result
+
+        if not self.cur_token.matches(lexer.TT_KEYWORD, 'THEN'):
+            return result.failure(error.InvalidSyntaxError(self.cur_token.pos_start, self.cur_token.pos_end, f"Expected 'THEN'"))
+
+        result.register_advancement()
+        self.advance()
+        expr = result.register(self.expr())
+        if result.error: return result
+        cases.append((condition, expr))
+
+        while self.cur_token.matches(lexer.TT_KEYWORD, 'ELIF'):
+            result.register_advancement()
+            self.advance()
+            condition = result.register(self.expr())
+            if result.error: return result
+
+            if not self.cur_token.matches(lexer.TT_KEYWORD, 'THEN'):
+                return result.failure(error.InvalidSyntaxError(self.cur_token.pos_start, self.cur_token.pos_end,f"Expected 'THEN'"))
+
+            result.register_advancement()
+            self.advance()
+            expr = result.register(self.expr())
+            if result.error: return result
+            cases.append((condition, expr))
+
+        if self.cur_token.matches(lexer.TT_KEYWORD, 'ELSE'):
+            result.register_advancement()
+            self.advance()
+
+            else_case = result.register(self.expr())
+            if result.error: return result
+
+        return result.success(IfNode(cases, else_case))
+    
     def atom(self):
         result = ParseResult()
         token = self.cur_token
@@ -141,6 +196,11 @@ class Parser:
                 return result.success(expr)
             else:
                 return result.failure(error.InvalidSynaxError(self.cur_token.pos_start, self.cur_token.pos_end, "Expected ')'"))
+            
+        elif token.matches(lexer.TT_KEYWORD, 'IF'):
+            if_expr = result.register(self.if_expr())
+            if result.error: return result
+            return result.success(if_expr)
 
         return result.failure(error.InvalidSynaxError(
             token.pos_start, token.pos_end, "Expected int, float, identifier, '+', '-', or '('"))
