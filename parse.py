@@ -72,12 +72,13 @@ class ParseResult:
         self.error = None
         self.node = None
 
-    def register(self, result):
-        if isinstance(result, ParseResult):
-            if result.error: self.error = result.error
-            return result.node
-        
-        return result
+    def register_advancement(self):
+        self.advance_count += 1
+
+    def register(self, res):
+        self.advance_count += res.advance_count
+        if res.error: self.error = res.error
+        return res.node
 
     def success(self, node):
         self.node = node
@@ -117,24 +118,29 @@ class Parser:
         token = self.cur_token
 
         if token.type in (lexer.TT_INT, lexer.TT_FLOAT):
-            result.register(self.advance())
+            result.register_advancement()
+            self.advance()
             return result.success(NumberNode(token))
         
         elif token.type in lexer.TT_IDENTIFIER:
-            result.register(self.advance())
+            result.register_advancement()
+            self.advance()
             return result.success(VarAccessNode(token))
         
         elif token.type in lexer.TT_LPAREN:
-            result.register(self.advance())
+            result.register_advancement()
+            self.advance()
             expr = result.register(self.expr())
             if result.error: return result
             if self.cur_token.type == lexer.TT_RPAREN:
-                result.register(self.advance())
+                result.register_advancement()
+                self.advance()
                 return result.success(expr)
             else:
                 return result.failure(error.InvalidSynaxError(self.cur_token.pos_start, self.cur_token.pos_end, "Expected ')'"))
 
-        return result.failure(error.InvalidSynaxError(token.pos_start, token.pos_end, "Expected int, float, '+', '-', or '('"))
+        return result.failure(error.InvalidSynaxError(
+            token.pos_start, token.pos_end, "Expected int, float, identifier, '+', '-', or '('"))
     
     def power(self):
         return self.binary_operation(self.atom, (lexer.TT_POW, ), self.factor)
@@ -145,7 +151,8 @@ class Parser:
         token = self.cur_token
 
         if token.type in (lexer.TT_PLUS, lexer.TT_MINUS):
-            result.register(self.advance())
+            result.register_advancement()
+            self.advance()
             factor =  result.register(self.factor())
             if result.error: return result
             return result.success(UnaryOperationNode(token, factor)) 
@@ -174,7 +181,11 @@ class Parser:
             if res.error: return res
             return res.success(VarAssignNode(var_name, expr))
             
-        return self.binary_operation(self.term, (lexer.TT_PLUS, lexer.TT_MINUS))
+        node = res.register(self.binary_operation(self.term, (lexer.TT_PLUS, lexer.TT_MINUS)))
+
+        if res.error: return res.failure(lexer.InvalidSyntaxError(
+                self.cur_token.pos_start, self.cur_token.pos_end, "Expected 'Var', 'Identifier', int, float, '+', '-' or '('"))
+        return res.success(node)
 
     def binary_operation(self, func_a, operations, func_b=None):
         if func_b == None:
@@ -186,7 +197,8 @@ class Parser:
 
         while self.cur_token.type in operations:
             operation_token = self.cur_token
-            result.register(self.advance())
+            result.register_advancement()
+            self.advance()
             right = result.register(func_b())
             if result.error: return result
             left = BinaryOperationNode(left, operation_token, right)
