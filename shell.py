@@ -18,7 +18,7 @@ def run(file_name, text):
 
     # Generate Interpreter
     interp = interpreter.Interpreter()
-    context = interpreter.Context('program')
+    context = interpreter.Context('<program>')
     result = interp.visit(ast.node, context)
 
     return result.value, result.error

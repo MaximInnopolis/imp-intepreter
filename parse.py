@@ -40,7 +40,7 @@ class UnaryOperationNode:
         self.node = node
 
         self.pos_start = self.operation_token.pos_start
-        self.pos_end = self.node.pos_end
+        self.pos_end = node.pos_end
 
     def __repr__(self):
         return f'({self.operation_token}, {self.node})'
@@ -95,17 +95,11 @@ class Parser:
 
         return result
     
-    def factor(self):
+    def atom(self):
         result = ParseResult()
         token = self.cur_token
 
-        if token.type in (lexer.TT_PLUS, lexer.TT_MINUS):
-            result.register(self.advance())
-            factor =  result.register(self.factor())
-            if result.error: return result
-            return result.success(UnaryOperationNode(token, factor))
-
-        elif token.type in (lexer.TT_INT, lexer.TT_FLOAT):
+        if token.type in (lexer.TT_INT, lexer.TT_FLOAT):
             result.register(self.advance())
             return result.success(NumberNode(token))
         
@@ -118,24 +112,43 @@ class Parser:
                 return result.success(expr)
             else:
                 return result.failure(error.InvalidSynaxError(self.cur_token.pos_start, self.cur_token.pos_end, "Expected ')'"))
-        
-        return result.failure(error.InvalidSynaxError(token.pos_start, token.pos_end, "Expected int or float"))
 
+        return result.failure(error.InvalidSynaxError(token.pos_start, token.pos_end, "Expected int, float, '+', '-', or '('"))
+    
+    def power(self):
+        return self.binary_operation(self.atom, (lexer.TT_POW, ), self.factor)
+
+    
+    def factor(self):
+        result = ParseResult()
+        token = self.cur_token
+
+        if token.type in (lexer.TT_PLUS, lexer.TT_MINUS):
+            result.register(self.advance())
+            factor =  result.register(self.factor())
+            if result.error: return result
+            return result.success(UnaryOperationNode(token, factor)) 
+        
+        return self.power()
+    
     def term(self):
         return self.binary_operation(self.factor, (lexer.TT_MUL, lexer.TT_DIV))
 
     def expr(self):
         return self.binary_operation(self.term, (lexer.TT_PLUS, lexer.TT_MINUS))
 
-    def binary_operation(self, func, operations):
+    def binary_operation(self, func_a, operations, func_b=None):
+        if func_b == None:
+            func_b = func_a
+
         result = ParseResult()
-        left = result.register(func())
+        left = result.register(func_a())
         if result.error: return result
 
         while self.cur_token.type in operations:
             operation_token = self.cur_token
             result.register(self.advance())
-            right = result.register(func())
+            right = result.register(func_b())
             if result.error: return result
             left = BinaryOperationNode(left, operation_token, right)
 

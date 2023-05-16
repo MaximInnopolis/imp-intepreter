@@ -46,7 +46,7 @@ class RuntimeError(Error):
         ctx = self.context
 
         while ctx:
-            result = f' File {pos.file_name}, line {str(pos.line_num)}, in {ctx.display_name}\n' + result
+            result = f' File {pos.file_name}, line {str(pos.line_num + 1)}, in {ctx.display_name}\n' + result
             pos = ctx.parent_entry_pos
             ctx = ctx.parent
 

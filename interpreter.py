@@ -68,6 +68,10 @@ class Number:
                 return None, error.RuntimeError(other.pos_start, other.pos_end, 'Division by zero', self.context)
             else:
                 return Number(self.value / other.value).set_context(self.context), None
+            
+    def pow_by(self, other):
+        if isinstance(other, Number):
+            return Number(self.value ** other.value).set_context(self.context), None
         
     def __repr__(self):
         return str(self.value)
@@ -95,7 +99,7 @@ class Interpreter:
         return method(node, context)
     
     def no_visit_method(self, node, context):
-        raise Exception(f'No visit method {type(node).__name__} defined')
+        raise Exception(f'No visit_{type(node).__name__} method defined')
     
     def visit_NumberNode(self, node, context):
         return RuntimeResult().success(Number(node.token.value).set_context(context).set_pos(node.pos_start, node.pos_end))
@@ -115,6 +119,9 @@ class Interpreter:
             result, error = left.mul_by(right)
         elif node.operation_token.type == lexer.TT_DIV:
             result, error = left.div_by(right)
+        elif node.operation_token.type == lexer.TT_POW:
+            result, error = left.pow_by(right)
+
 
         if error:
             return res.failure(error)
