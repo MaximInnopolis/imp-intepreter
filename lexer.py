@@ -3,6 +3,7 @@
 ##########
 
 import error
+import string
 
 
 ##########
@@ -10,6 +11,8 @@ import error
 ##########
 
 DIGITS = '0123456789'
+LETTERS = string.ascii_letters
+LETTERS_DIGITS = DIGITS + LETTERS
 
 
 ####################
@@ -44,6 +47,9 @@ class Position:
 
 TT_INT = 'INT'
 TT_FLOAT = 'FLOAT'
+TT_IDENTIFIER = 'IDENTIFIER'
+TT_KEYWORD = 'KEYWORD'
+TT_EQ = 'EQ'
 TT_PLUS = 'PLUS'
 TT_MINUS = 'MINUS'
 TT_MUL = 'MUL'
@@ -52,6 +58,8 @@ TT_POW = 'POW'
 TT_LPAREN = 'LPAREN'
 TT_RPAREN = 'RPAREN'
 TT_EOF = 'EOF'
+
+KEYWORDS = ['VAR']
 
 
 class Token:
@@ -66,6 +74,9 @@ class Token:
 
         if pos_end:
             self.pos_end = pos_end
+
+    def matches(self, type_, value):
+        return self.type == type_ and self.value == value
 
 
     def __repr__(self):
@@ -97,6 +108,11 @@ class Lexer:
                 self.advance()
             elif self.cur_char in DIGITS:
                 tokens.append(self.create_number())
+            elif self.cur_char in LETTERS:
+                tokens.append(self.create_identifier())
+            elif self.cur_char == '=':
+                tokens.append(Token(TT_EQ, pos_start=self.pos))
+                self.advance()
             elif self.cur_char == '+':
                 tokens.append(Token(TT_PLUS, pos_start=self.pos))
                 self.advance()
@@ -146,3 +162,15 @@ class Lexer:
             return Token(TT_INT, int(num_str), pos_start, self.pos)
         else:
             return Token(TT_FLOAT, float(num_str), pos_start, self.pos)
+        
+    def create_identifier(self):
+        id_str = ''
+        pos_start = self.pos.copy()
+        
+        while self.cur_char != None and self.cur_char in LETTERS_DIGITS + '_':
+            id_str += self.cur_char
+            self.advance()
+            
+        token_type = TT_KEYWORD if id_str in KEYWORDS else TT_IDENTIFIER
+        return Token(token_type, id_str, pos_start, self.pos)
+    

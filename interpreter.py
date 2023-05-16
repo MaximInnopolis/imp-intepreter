@@ -5,8 +5,6 @@
 from string_with_arrows import *
 import lexer
 import error
-import parse
-
 
 ####################
 # RUNTIME RESULT
@@ -73,6 +71,12 @@ class Number:
         if isinstance(other, Number):
             return Number(self.value ** other.value).set_context(self.context), None
         
+    def copy(self):
+        copy = Number(self.value)
+        copy.set_pos(self.pos_start, self.pos_end)
+        copy.set_context(self.context)
+        return copy
+        
     def __repr__(self):
         return str(self.value)
         
@@ -86,6 +90,29 @@ class Context:
         self.display_name = display_name
         self.parent = parent
         self.parent_entry_pos = parent_entry_pos
+        self.symbol_table = None
+
+
+####################
+# SYMBOL TABLE
+####################
+
+class SymbolTable:
+	def __init__(self):
+		self.symbols = {}
+		self.parent = None
+
+	def get(self, name):
+		value = self.symbols.get(name, None)
+		if value == None and self.parent:
+			return self.parent.get(name)
+		return value
+
+	def set(self, name, value):
+		self.symbols[name] = value
+
+	def remove(self, name):
+		del self.symbols[name]
 
 
 ####################
@@ -103,6 +130,26 @@ class Interpreter:
     
     def visit_NumberNode(self, node, context):
         return RuntimeResult().success(Number(node.token.value).set_context(context).set_pos(node.pos_start, node.pos_end))
+
+    def visit_VarAccessNode(self, node, context):
+        result = RuntimeResult()
+        var_name = node.var_name_token.value
+        value = context.symbol_table.get(var_name)
+
+        if not value:
+            return result.failure(error.RuntimeError(node.pos_start, node.pos_end, f"'{var_name}' is not defined", context))
+
+        value = value.copy().set_pos(node.pos_start, node.pos_end)
+        return result.success(value)
+    
+    def visit_VarAssignNode(self, node, context):
+        result = RuntimeResult()
+        var_name = node.var_name_token.value
+        value = result.register(self.visit(node.value_node, context))
+        if result.error: return result
+
+        context.symbol_table.set(var_name, value)
+        return result.success(value)
 
     def visit_BinaryOperationNode(self, node, context):
         res = RuntimeResult()

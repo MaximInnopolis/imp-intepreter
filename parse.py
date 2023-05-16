@@ -21,6 +21,23 @@ class NumberNode:
         return f'{self.token}'
     
 
+class VarAccessNode:
+    def __init__(self, var_name_token):
+        self.var_name_token = var_name_token
+
+        self.pos_start = self.var_name_token.pos_start
+        self.pos_end = self.var_name_token.pos_end
+
+
+class VarAssignNode:
+	def __init__(self, var_name_token, value_node):
+		self.var_name_token = var_name_token
+		self.value_node = value_node
+
+		self.pos_start = self.var_name_token.pos_start
+		self.pos_end = self.value_node.pos_end
+    
+
 class BinaryOperationNode:
     def __init__(self, left_node, operation_token, right_node):
         self.left_node = left_node
@@ -103,6 +120,10 @@ class Parser:
             result.register(self.advance())
             return result.success(NumberNode(token))
         
+        elif token.type in lexer.TT_IDENTIFIER:
+            result.register(self.advance())
+            return result.success(VarAccessNode(token))
+        
         elif token.type in lexer.TT_LPAREN:
             result.register(self.advance())
             expr = result.register(self.expr())
@@ -135,6 +156,24 @@ class Parser:
         return self.binary_operation(self.factor, (lexer.TT_MUL, lexer.TT_DIV))
 
     def expr(self):
+        res = ParseResult()
+        if self.cur_token.matches(lexer.TT_KEYWORD, 'VAR'):
+            res.register(self.advance())
+
+            if self.cur_token.type != lexer.TT_IDENTIFIER:
+                return res.failure(lexer.InvalidSyntaxError(self.cur_token.pos_start, self.cur_token.pos_end,"Expected identifier"))
+            
+            var_name = self.cur_token
+            res.register(self.advance())
+
+            if self.cur_token.type != lexer.TT_EQ:
+                return res.failure(lexer.InvalidSyntaxError(self.cur_token.pos_start, self.cur_token.pos_end, "Expected '='"))
+            
+            res.register(self.advance())
+            expr = res.register(self.expr())
+            if res.error: return res
+            return res.success(VarAssignNode(var_name, expr))
+            
         return self.binary_operation(self.term, (lexer.TT_PLUS, lexer.TT_MINUS))
 
     def binary_operation(self, func_a, operations, func_b=None):
