@@ -261,3 +261,45 @@ class Interpreter:
             return result.success(else_value)
 
         return result.success(None)
+    
+    def visit_ForNode(self, node, context):
+        result = RuntimeResult()
+        start_value = result.register(self.visit(node.start_value_node, context))
+        if result.error: return result
+        end_value = result.register(self.visit(node.end_value_node, context))
+        if result.error: return result
+
+        if node.step_value_node:
+            step_value = result.register(self.visit(node.step_value_node, context))
+            if result.error: return result
+        else:
+            step_value = Number(1)
+
+        i = start_value.value
+        if step_value.value >= 0:
+            condition = lambda: i < end_value.value
+        else:
+            condition = lambda: i > end_value.value
+        
+        while condition():
+            context.symbol_table.set(node.var_name_token.value, Number(i))
+            i += step_value.value
+
+            result.register(self.visit(node.body_node, context))
+            if result.error: return result
+
+        return result.success(None)
+
+    def visit_WhileNode(self, node, context):
+        result = RuntimeResult()
+
+        while True:
+            condition = result.register(self.visit(node.condition_node, context))
+            if result.error: return result
+
+            if not condition.is_true(): break
+
+            result.register(self.visit(node.body_node, context))
+            if result.error: return result
+
+        return result.success(None)

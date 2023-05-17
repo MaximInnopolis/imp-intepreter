@@ -65,7 +65,7 @@ TT_LPAREN = 'LPAREN'
 TT_RPAREN = 'RPAREN'
 TT_EOF = 'EOF'
 
-KEYWORDS = ['VAR', 'AND', 'OR', 'NOT', 'IF', 'THEN', 'ELSE', 'ELIF']
+KEYWORDS = ['VAR', 'AND', 'OR', 'NOT', 'IF', 'THEN', 'ELSE', 'ELIF', 'FOR', 'TO', 'STEP', 'WHILE']
 
 
 class Token:

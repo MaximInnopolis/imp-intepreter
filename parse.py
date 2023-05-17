@@ -70,6 +70,26 @@ class IfNode:
 
 		self.pos_start = self.cases[0][0].pos_start
 		self.pos_end = (self.else_case or self.cases[len(self.cases) - 1][0]).pos_end
+                
+
+class ForNode:
+	def __init__(self, var_name_token, start_value_node, end_value_node, step_value_node, body_node):
+		self.var_name_token = var_name_token
+		self.start_value_node = start_value_node
+		self.end_value_node = end_value_node
+		self.step_value_node = step_value_node
+		self.body_node = body_node
+
+		self.pos_start = self.var_name_token.pos_start
+		self.pos_end = self.body_node.pos_end
+
+class WhileNode:
+	def __init__(self, condition_node, body_node):
+		self.condition_node = condition_node
+		self.body_node = body_node
+
+		self.pos_start = self.condition_node.pos_start
+		self.pos_end = self.body_node.pos_end
 
 ####################
 # PARSE RESULT
@@ -134,7 +154,6 @@ class Parser:
 
         result.register_advancement()
         self.advance()
-
         condition = result.register(self.expr())
         if result.error: return result
 
@@ -151,8 +170,8 @@ class Parser:
             result.register_advancement()
             self.advance()
             condition = result.register(self.expr())
-            if result.error: return result
 
+            if result.error: return result
             if not self.cur_token.matches(lexer.TT_KEYWORD, 'THEN'):
                 return result.failure(error.InvalidSyntaxError(self.cur_token.pos_start, self.cur_token.pos_end,f"Expected 'THEN'"))
 
@@ -165,11 +184,81 @@ class Parser:
         if self.cur_token.matches(lexer.TT_KEYWORD, 'ELSE'):
             result.register_advancement()
             self.advance()
-
             else_case = result.register(self.expr())
             if result.error: return result
 
         return result.success(IfNode(cases, else_case))
+    
+    def for_expr(self):
+        result = ParseResult()
+
+        if not self.cur_token.matches(lexer.TT_KEYWORD, 'FOR'):
+            return result.failure(error.InvalidSyntaxError(self.cur_token.pos_start, self.cur_token.pos_end, f"Expected 'FOR'"))
+
+        result.register_advancement()
+        self.advance()
+
+        if self.cur_token.type != lexer.TT_IDENTIFIER:
+            return result.failure(error.InvalidSyntaxError(self.cur_token.pos_start, self.cur_token.pos_end, f"Expected identifier"))
+
+        var_name = self.cur_token
+        result.register_advancement()
+        self.advance()
+
+        if self.cur_token.type != lexer.TT_EQ:
+            return result.failure(error.InvalidSyntaxError(self.cur_token.pos_start, self.cur_token.pos_end, f"Expected '='"))
+        
+        result.register_advancement()
+        self.advance()
+        start_value = result.register(self.expr())
+        if result.error: return result
+
+        if not self.cur_token.matches(lexer.TT_KEYWORD, 'TO'):
+            return result.failure(error.InvalidSyntaxError(self.cur_token.pos_start, self.cur_token.pos_end, f"Expected 'TO'"))
+        
+        result.register_advancement()
+        self.advance()
+        end_value = result.register(self.expr())
+        if result.error: return result
+
+        if self.cur_token.matches(lexer.TT_KEYWORD, 'STEP'):
+            result.register_advancement()
+            self.advance()
+
+            step_value = result.register(self.expr())
+            if result.error: return result
+        else:
+            step_value = None
+
+        if not self.cur_token.matches(lexer.TT_KEYWORD, 'THEN'):
+            return result.failure(error.InvalidSyntaxError(self.cur_token.pos_start, self.cur_token.pos_end, f"Expected 'THEN'"))
+
+        result.register_advancement()
+        self.advance()
+        body = result.register(self.expr())
+        if result.error: return result
+
+        return result.success(ForNode(var_name, start_value, end_value, step_value, body))
+
+    def while_expr(self):
+        result = ParseResult()
+
+        if not self.cur_token.matches(lexer.TT_KEYWORD, 'WHILE'):
+            return result.failure(error.InvalidSyntaxError(self.cur_token.pos_start, self.cur_token.pos_end, f"Expected 'WHILE'"))
+
+        result.register_advancement()
+        self.advance()
+        condition = result.register(self.expr())
+        if result.error: return result
+
+        if not self.cur_token.matches(lexer.TT_KEYWORD, 'THEN'):
+            return result.failure(error.InvalidSyntaxError(self.cur_token.pos_start, self.cur_token.pos_end, f"Expected 'THEN'"))
+
+        result.register_advancement()
+        self.advance()
+        body = result.register(self.expr())
+        if result.error: return result
+        return result.success(WhileNode(condition, body))
     
     def atom(self):
         result = ParseResult()
@@ -201,6 +290,16 @@ class Parser:
             if_expr = result.register(self.if_expr())
             if result.error: return result
             return result.success(if_expr)
+        
+        elif token.matches(lexer.TT_KEYWORD, 'FOR'):
+            for_expr = result.register(self.for_expr())
+            if result.error: return result
+            return result.success(for_expr)
+
+        elif token.matches(lexer.TT_KEYWORD, 'WHILE'):
+            while_expr = result.register(self.while_expr())
+            if result.error: return result
+            return result.success(while_expr)
 
         return result.failure(error.InvalidSynaxError(
             token.pos_start, token.pos_end, "Expected int, float, identifier, '+', '-', or '('"))
