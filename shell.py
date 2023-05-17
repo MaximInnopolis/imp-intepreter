@@ -3,7 +3,6 @@ import lexer
 import parse
 
 global_symbol_table = interpreter.SymbolTable()
-global_symbol_table.set("null", interpreter.Number(0))
 
 def run(file_name, text):
     # Generate tokens
